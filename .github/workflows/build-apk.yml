@@ -42,7 +42,7 @@ jobs:
 
           mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/jniLibs/arm64-v8a
+          mkdir -p app/src/main/cpp
 
           cat > settings.gradle <<'EOF'
           import org.gradle.api.initialization.resolve.RepositoriesMode
@@ -91,6 +91,18 @@ jobs:
 
                   ndk {
                       abiFilters 'arm64-v8a'
+                  }
+
+                  externalNativeBuild {
+                      cmake {
+                          cppFlags '-std=c++17'
+                      }
+                  }
+              }
+
+              externalNativeBuild {
+                  cmake {
+                      path file('src/main/cpp/CMakeLists.txt')
                   }
               }
 
@@ -141,6 +153,59 @@ jobs:
           </resources>
           EOF
 
+          cat > app/src/main/cpp/CMakeLists.txt <<'EOF'
+          cmake_minimum_required(VERSION 3.22.1)
+
+          project(bambustudio_core)
+
+          add_library(
+              bambustudio_core
+              SHARED
+              native-lib.cpp
+          )
+
+          find_library(
+              log-lib
+              log
+          )
+
+          target_link_libraries(
+              bambustudio_core
+              ${log-lib}
+          )
+          EOF
+
+          cat > app/src/main/cpp/native-lib.cpp <<'EOF'
+          #include <jni.h>
+          #include <string>
+
+          extern "C" JNIEXPORT jstring JNICALL
+          Java_com_apkappentwickler_bambustudio_MainActivity_startNativeSlicing(
+                  JNIEnv* env,
+                  jobject /* thiz */,
+                  jstring path,
+                  jdouble height,
+                  jint infill) {
+              const char* utfPath = path
+                      ? env->GetStringUTFChars(path, nullptr)
+                      : "";
+
+              std::string result =
+                      "Native slicing gestartet: path=" +
+                      std::string(utfPath) +
+                      ", height=" +
+                      std::to_string(height) +
+                      ", infill=" +
+                      std::to_string(infill);
+
+              if (path != nullptr) {
+                  env->ReleaseStringUTFChars(path, utfPath);
+              }
+
+              return env->NewStringUTF(result.c_str());
+          }
+          EOF
+
           cat > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java <<'EOF'
           package com.apkappentwickler.bambustudio;
 
@@ -163,6 +228,7 @@ jobs:
 
           public class MainActivity extends Activity {
               private static final int PICK_MODEL_REQUEST = 42;
+
               private static final int BG = Color.rgb(16, 20, 25);
               private static final int SURFACE = Color.rgb(28, 34, 41);
               private static final int TEXT = Color.rgb(242, 245, 247);
@@ -170,17 +236,27 @@ jobs:
               private static final int CYAN = Color.rgb(0, 174, 236);
 
               private Button slicingButton;
+              private EditText layerHeightInput;
+              private EditText infillInput;
+              private String selectedModelPath;
 
-              // Temporarily disabled while the JNI bridge is being aligned.
-              // static {
-              //     System.loadLibrary("bambustudio_core");
-              // }
+              static {
+                  System.loadLibrary("bambustudio_core");
+              }
+
+              public native String startNativeSlicing(
+                      String path,
+                      double height,
+                      int infill
+              );
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+
                   getWindow().setStatusBarColor(BG);
                   getWindow().setNavigationBarColor(BG);
+
                   setContentView(createContentView());
               }
 
@@ -197,25 +273,47 @@ jobs:
                   mark.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
                   mark.setGravity(Gravity.CENTER);
                   mark.setBackground(round(CYAN, 12));
-                  toolbar.addView(mark, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+                  toolbar.addView(
+                          mark,
+                          new LinearLayout.LayoutParams(dp(48), dp(48))
+                  );
 
                   TextView brand = label("  Bambu Studio", 21, TEXT);
                   brand.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                  toolbar.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+                  LinearLayout.LayoutParams brandParams =
+                          new LinearLayout.LayoutParams(0, dp(48), 1);
+
+                  toolbar.addView(brand, brandParams);
 
                   TextView version = label("MOBILE", 11, MUTED);
                   version.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+
                   toolbar.addView(version);
 
-                  root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
+                  root.addView(
+                          toolbar,
+                          new LinearLayout.LayoutParams(-1, dp(56))
+                  );
 
-                  TextView heading = label("Bereit für dein nächstes\n3D-Projekt?", 32, TEXT);
+                  TextView heading = label(
+                          "Bereit für dein nächstes\n3D-Projekt?",
+                          32,
+                          TEXT
+                  );
                   heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
                   heading.setPadding(0, dp(22), 0, dp(8));
+
                   root.addView(heading);
 
-                  TextView intro = label("Lade ein Modell und starte den Slicing-Workflow.", 16, MUTED);
+                  TextView intro = label(
+                          "Lade ein Modell und starte den Slicing-Workflow.",
+                          16,
+                          MUTED
+                  );
                   intro.setPadding(0, dp(14), 0, dp(26));
+
                   root.addView(intro);
 
                   LinearLayout card = new LinearLayout(this);
@@ -223,11 +321,19 @@ jobs:
                   card.setPadding(dp(20), dp(20), dp(20), dp(20));
                   card.setBackground(round(SURFACE, 18));
 
-                  TextView cardTitle = label("MODELL IMPORTIEREN", 12, CYAN);
+                  TextView cardTitle = label(
+                          "MODELL IMPORTIEREN",
+                          12,
+                          CYAN
+                  );
                   cardTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
                   card.addView(cardTitle);
 
-                  TextView hint = label("Unterstützte Formate: STL und 3MF", 14, MUTED);
+                  TextView hint = label(
+                          "Unterstützte Formate: STL und 3MF",
+                          14,
+                          MUTED
+                  );
                   hint.setPadding(0, dp(8), 0, dp(18));
                   card.addView(hint);
 
@@ -243,23 +349,38 @@ jobs:
                   load.setBackground(round(CYAN, 12));
                   load.setOnClickListener(v -> openModelPicker());
 
-                  card.addView(load, new LinearLayout.LayoutParams(-1, dp(58)));
+                  card.addView(
+                          load,
+                          new LinearLayout.LayoutParams(-1, dp(58))
+                  );
 
-                  EditText layerHeight = inputField("Schichthöhe (mm)", "0.20");
-                  LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
-                          -1, dp(56));
-                  inputParams.topMargin = dp(16);
-                  card.addView(layerHeight, inputParams);
+                  layerHeightInput = inputField(
+                          "Schichthöhe (mm)",
+                          "0.20"
+                  );
 
-                  EditText infill = inputField("Infill (%)", "20");
-                  LinearLayout.LayoutParams infillParams = new LinearLayout.LayoutParams(
-                          -1, dp(56));
+                  LinearLayout.LayoutParams layerHeightParams =
+                          new LinearLayout.LayoutParams(-1, dp(56));
+                  layerHeightParams.topMargin = dp(16);
+
+                  card.addView(layerHeightInput, layerHeightParams);
+
+                  infillInput = inputField(
+                          "Infill (%)",
+                          "20"
+                  );
+
+                  LinearLayout.LayoutParams infillParams =
+                          new LinearLayout.LayoutParams(-1, dp(56));
                   infillParams.topMargin = dp(12);
-                  card.addView(infill, infillParams);
+
+                  card.addView(infillInput, infillParams);
 
                   slicingButton = new Button(this);
                   slicingButton.setAllCaps(false);
-                  slicingButton.setText("Slicing starten (G-Code generieren)");
+                  slicingButton.setText(
+                          "Slicing starten (G-Code generieren)"
+                  );
                   slicingButton.setTextColor(Color.WHITE);
                   slicingButton.setTextSize(16);
                   slicingButton.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -269,24 +390,32 @@ jobs:
                   slicingButton.setBackground(round(CYAN, 12));
                   slicingButton.setEnabled(false);
                   slicingButton.setAlpha(0.5f);
-                  slicingButton.setOnClickListener(v -> {
-                      Toast.makeText(
-                              this,
-                              "Slicing gestartet – G-Code wird generiert.",
-                              Toast.LENGTH_LONG
-                      ).show();
-                  });
-                  LinearLayout.LayoutParams slicingParams = new LinearLayout.LayoutParams(
-                          -1, dp(64));
+                  slicingButton.setOnClickListener(
+                          v -> invokeNativeSlicing()
+                  );
+
+                  LinearLayout.LayoutParams slicingParams =
+                          new LinearLayout.LayoutParams(-1, dp(64));
                   slicingParams.topMargin = dp(16);
+
                   card.addView(slicingButton, slicingParams);
 
-                  root.addView(card, new LinearLayout.LayoutParams(-1,
-                          ViewGroup.LayoutParams.WRAP_CONTENT));
+                  root.addView(
+                          card,
+                          new LinearLayout.LayoutParams(
+                                  -1,
+                                  ViewGroup.LayoutParams.WRAP_CONTENT
+                          )
+                  );
 
-                  TextView footer = label("Bambu Studio Core  •  Bereit", 13, MUTED);
+                  TextView footer = label(
+                          "Bambu Studio Core  •  Bereit",
+                          13,
+                          MUTED
+                  );
                   footer.setGravity(Gravity.CENTER);
                   footer.setPadding(0, dp(26), 0, 0);
+
                   root.addView(footer);
 
                   return root;
@@ -301,33 +430,102 @@ jobs:
                   input.setTextSize(16);
                   input.setSingleLine(true);
                   input.setPadding(dp(16), 0, dp(16), 0);
-                  input.setInputType(InputType.TYPE_CLASS_NUMBER
-                          | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                  input.setInputType(
+                          InputType.TYPE_CLASS_NUMBER
+                                  | InputType.TYPE_NUMBER_FLAG_DECIMAL
+                  );
                   input.setBackground(round(BG, 10));
+
                   return input;
+              }
+
+              private void invokeNativeSlicing() {
+                  if (selectedModelPath == null
+                          || selectedModelPath.trim().isEmpty()) {
+                      Toast.makeText(
+                              this,
+                              "Bitte zuerst ein Modell laden.",
+                              Toast.LENGTH_LONG
+                      ).show();
+                      return;
+                  }
+
+                  try {
+                      double height = Double.parseDouble(
+                              layerHeightInput
+                                      .getText()
+                                      .toString()
+                                      .trim()
+                      );
+
+                      int infill = Integer.parseInt(
+                              infillInput
+                                      .getText()
+                                      .toString()
+                                      .trim()
+                      );
+
+                      String result = startNativeSlicing(
+                              selectedModelPath,
+                              height,
+                              infill
+                      );
+
+                      Toast.makeText(
+                              this,
+                              result,
+                              Toast.LENGTH_LONG
+                      ).show();
+                  } catch (NumberFormatException exception) {
+                      Toast.makeText(
+                              this,
+                              "Bitte gültige Schichthöhe und gültigen Infill eingeben.",
+                              Toast.LENGTH_LONG
+                      ).show();
+                  } catch (RuntimeException exception) {
+                      Toast.makeText(
+                              this,
+                              "Native Slicing-Funktion konnte nicht gestartet werden.",
+                              Toast.LENGTH_LONG
+                      ).show();
+                  }
               }
 
               private void openModelPicker() {
                   Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                   intent.addCategory(Intent.CATEGORY_OPENABLE);
                   intent.setType("*/*");
-                  intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-                          "model/stl",
-                          "application/vnd.ms-pki.stl",
-                          "model/3mf",
-                          "application/vnd.ms-package.3dmanufacturing-3dmodel",
-                          "application/octet-stream"
-                  });
+                  intent.putExtra(
+                          Intent.EXTRA_MIME_TYPES,
+                          new String[] {
+                                  "model/stl",
+                                  "application/vnd.ms-pki.stl",
+                                  "model/3mf",
+                                  "application/vnd.ms-package.3dmanufacturing-3dmodel",
+                                  "application/octet-stream"
+                          }
+                  );
 
                   startActivityForResult(
-                          Intent.createChooser(intent, "3D-Modell auswählen"),
+                          Intent.createChooser(
+                                  intent,
+                                  "3D-Modell auswählen"
+                          ),
                           PICK_MODEL_REQUEST
                   );
               }
 
               @Override
-              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-                  super.onActivityResult(requestCode, resultCode, data);
+              protected void onActivityResult(
+                      int requestCode,
+                      int resultCode,
+                      Intent data
+              ) {
+                  super.onActivityResult(
+                          requestCode,
+                          resultCode,
+                          data
+                  );
 
                   if (requestCode == PICK_MODEL_REQUEST
                           && resultCode == RESULT_OK
@@ -335,20 +533,38 @@ jobs:
                       Uri model = data.getData();
 
                       if (model != null) {
+                          selectedModelPath = model.toString();
+
+                          try {
+                              getContentResolver().takePersistableUriPermission(
+                                      model,
+                                      data.getFlags()
+                                              & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                              | Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                              );
+                          } catch (SecurityException ignored) {
+                          }
+
                           if (slicingButton != null) {
                               slicingButton.setEnabled(true);
                               slicingButton.setAlpha(1.0f);
                           }
+
                           Toast.makeText(
                                   this,
-                                  "Modell geladen: " + model.getLastPathSegment(),
+                                  "Modell geladen: "
+                                          + model.getLastPathSegment(),
                                   Toast.LENGTH_LONG
                           ).show();
                       }
                   }
               }
 
-              private TextView label(String text, int size, int color) {
+              private TextView label(
+                      String text,
+                      int size,
+                      int color
+              ) {
                   TextView view = new TextView(this);
                   view.setText(text);
                   view.setTextSize(size);
@@ -356,7 +572,10 @@ jobs:
                   return view;
               }
 
-              private GradientDrawable round(int color, int radius) {
+              private GradientDrawable round(
+                      int color,
+                      int radius
+              ) {
                   GradientDrawable drawable = new GradientDrawable();
                   drawable.setColor(color);
                   drawable.setCornerRadius(dp(radius));
@@ -365,7 +584,10 @@ jobs:
 
               private int dp(int value) {
                   return Math.round(
-                          value * getResources().getDisplayMetrics().density
+                          value
+                                  * getResources()
+                                          .getDisplayMetrics()
+                                          .density
                   );
               }
           }
@@ -381,32 +603,6 @@ jobs:
             --distribution-type bin
 
           chmod +x ./gradlew
-
-      - name: Native-Bibliothek für arm64-v8a bereitstellen
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-
-          NATIVE_LIBRARY="$(find . \
-            -path './app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so' -prune -o \
-            -type f \
-            -name 'libbambustudio_core.so' \
-            -print \
-            | head -n 1)"
-
-          if [ -z "${NATIVE_LIBRARY}" ]; then
-            echo "::error::libbambustudio_core.so wurde im Repository nicht gefunden."
-            exit 1
-          fi
-
-          cp "${NATIVE_LIBRARY}" \
-            app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
-
-          test -s app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
-
-          file app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
 
       - name: Debug-APK mit Gradle bauen
         shell: bash
@@ -427,9 +623,11 @@ jobs:
           APK="app/build/outputs/apk/debug/app-debug.apk"
 
           test -f "${APK}"
+
           jar tf "${APK}" > apk-contents.txt
 
-          grep -q "lib/arm64-v8a/libbambustudio_core.so" apk-contents.txt
+          grep -q "lib/arm64-v8a/libbambustudio_core.so" \
+            apk-contents.txt
 
       - name: Android Build-Tools ermitteln
         id: build-tools
