@@ -13,14 +13,22 @@ jobs:
     - name: Code auschecken
       uses: actions/checkout@v4
 
-    - name: Android-Projekt direkt und ohne Gradle bauen
+    - name: Java 17 einrichten
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Android-Projekt mit Java-Ordner fehlerfrei aufbauen
       run: |
-        # 1. Tisch komplett freiräumen
+        # 1. Tisch komplett freiräumen, um alte Konflikte zu vermeiden
         rm -rf app android build
         find . -maxdepth 1 -type f -not -name "README.md" -delete
         
-        # 2. Saubere Ordnerstruktur für die APK anlegen
+        # 2. Die Ordnerstruktur inklusive Java-Pfad exakt wieder aufbauen
         mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
+        mkdir -p obj
         
         # 3. Das fehlerfreie Google-Standard-Manifest schreiben
         cat << 'EOF' > app/src/main/AndroidManifest.xml
@@ -50,11 +58,34 @@ jobs:
         </resources>
         EOF
 
-        # 5. Die APK direkt mit dem integrierten Google-SDK-Werkzeug zusammenbauen
-        # Wir holen uns das Werkzeug direkt über den absoluten Pfad des SDKs
+        # 5. Die Java-Startdatei wieder einfügen
+        cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
+        package com.apkappentwickler.bambustudio;
+        import android.app.Activity;
+        import android.os.Bundle;
+        public class MainActivity extends Activity {
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+            }
+        }
+        EOF
+
+        # 6. Ressourcen kompilieren und das Manifest fehlerfrei verlinken
         cd app/src/main
         $ANDROID_HOME/build-tools/34.0.0/aapt2 compile res/values/strings.xml -o compiled_res.zip || true
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Unsigned.apk
+        
+        # 7. Die Java-Datei direkt in Android-Maschinencode (DEX) übersetzen
+        cd ../../../
+        javac -source 1.8 -target 1.8 -bootclasspath $ANDROID_HOME/platforms/android-34/android.jar app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java -d obj
+        $ANDROID_HOME/build-tools/34.0.0/d8 obj/com/apkappentwickler/bambustudio/MainActivity.class --lib $ANDROID_HOME/platforms/android-34/android.jar --output classes.zip
+        
+        # 8. Den Maschinencode in die APK einbetten
+        zip -uj BambuStudio-Unsigned.apk classes.dex
+        
+        # 9. Die APK für dein Tablet signieren
+        $ANDROID_HOME/build-tools/34.0.0/apksigner debug --apk BambuStudio-Unsigned.apk --out BambuStudio-Mobile.apk
 
     - name: Fertige APK als Download bereitstellen
       uses: actions/upload-artifact@v4
