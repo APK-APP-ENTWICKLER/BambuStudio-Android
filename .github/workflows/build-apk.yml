@@ -19,49 +19,45 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Komplettes App-Projekt fehlerfrei erzeugen
+    - name: App-Projektstruktur aufbauen
       run: |
-        # 1. Erstellt alle benötigten Ordnerstrukturen absolut sauber
+        # 1. Erstellt die exakten Ordner, die Android erwartet
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
+        mkdir -p app/src/main/jniLibs/arm64-v8a
         
-        # 2. Ein absolut fehlerfreies Android-Manifest schreiben
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://android.com"
-            package="com.apkappentwickler.bambustudio">
-            <application android:label="Bambu Studio Mobile" android:allowBackup="true" android:supportsRtl="true">
-                <activity android:name=".MainActivity" android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
+        # 2. Verschiebt deine vorhin hochgeladenen Originaldateien an die richtige Stelle
+        cp AndroidManifest.xml app/src/main/
+        cp native-lib.cpp app/src/main/java/com/apkappentwickler/bambustudio/
 
-        # 3. Die benötigten Text-Ressourcen anlegen
+        # 3. Erstellt eine saubere, fehlerfreie Ressourcen-Datei
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
         </resources>
         EOF
 
-        # 4. Eine saubere Java-Startdatei anlegen
+        # 4. Erstellt die Java-Startdatei, die auch deine C++ Datei einbindet
         cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
         package com.apkappentwickler.bambustudio;
         import android.app.Activity;
         import android.os.Bundle;
+        import android.widget.TextView;
         public class MainActivity extends Activity {
+            static {
+                System.loadLibrary("bambustudio_core");
+            }
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
+                TextView tv = new TextView(this);
+                tv.setText("Bambu Studio Mobile: Core geladen!");
+                setContentView(tv);
             }
         }
         EOF
 
-        # 5. Die offiziellen Gradle-Steuerdateien erzeugen
+        # 5. Schreibt die Gradle-Dateien absolut fehlerfrei
         cat << 'EOF' > settings.gradle
         pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
         dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -90,7 +86,6 @@ jobs:
 
     - name: APK mit vorinstalliertem Gradle bauen
       run: |
-        # Nutzt das bereits eingebaute Android SDK des GitHub-Servers
         export ANDROID_HOME=$ANDROID_SDK_ROOT
         gradle assembleDebug
 
