@@ -42,7 +42,7 @@ jobs:
         </manifest>
         EOF
 
-        # Erstellt eine leere String-Ressource, damit das APK-Tool nicht meckert
+        # Erstellt die zwingend benötigte XML-Ressource
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
@@ -52,7 +52,9 @@ jobs:
     - name: APK generieren
       run: |
         cd app/src/main
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile --dir res -o compiled_res.zip || true
+        # Kompiliert die XML-Ressourcen ordnungsgemäß vor
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile app/src/main/res/values/strings.xml -o compiled_res.flat || true
+        # Verlinkt das Manifest direkt zu einer rohen APK-Datei
         $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
 
     - name: Fertige APK als Download bereitstellen
@@ -60,4 +62,3 @@ jobs:
       with:
         name: BambuStudio-App
         path: BambuStudio-Mobile.apk
-
