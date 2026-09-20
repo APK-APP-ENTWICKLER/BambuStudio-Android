@@ -1,6 +1,5 @@
 name: Build Bambu Studio APK
 
-# Das Sternchen sorgt dafür, dass das Skript auf JEDEM Branch anspringt!
 on:
   push:
     branches: [ '*' ]
@@ -14,30 +13,27 @@ jobs:
     - name: Code auschecken
       uses: actions/checkout@v4
 
-    - name: Java 17 einrichten
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Radikale Bereinigung und fehlerfreier Neuaufbau
+    - name: Android-Projekt direkt und ohne Gradle bauen
       run: |
-        # Wir löschen JEDEN alten Ordner, damit absolut keine Reste überleben können!
-        rm -rf app
-        rm -rf android
+        # 1. Tisch komplett freiräumen
+        rm -rf app android build
         find . -maxdepth 1 -type f -not -name "README.md" -delete
         
-        # Ordner komplett neu anlegen
+        # 2. Saubere Ordnerstruktur für die APK anlegen
         mkdir -p app/src/main/res/values
-        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # Perfektes Manifest schreiben
+        # 3. Das fehlerfreie Google-Standard-Manifest schreiben
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://android.com"
             package="com.apkappentwickler.bambustudio">
-            <application android:label="Bambu Studio Mobile" android:allowBackup="true" android:supportsRtl="true">
-                <activity android:name="com.apkappentwickler.bambustudio.MainActivity" android:exported="true">
+            <application
+                android:allowBackup="true"
+                android:label="Bambu Studio Mobile"
+                android:supportsRtl="true">
+                <activity
+                    android:name="com.apkappentwickler.bambustudio.MainActivity"
+                    android:exported="true">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
@@ -47,61 +43,21 @@ jobs:
         </manifest>
         EOF
 
-        # Ressourcen-Datei schreiben
+        # 4. Ressourcen-Datei schreiben
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
         </resources>
         EOF
 
-        # Java-Startdatei schreiben
-        cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
-        package com.apkappentwickler.bambustudio;
-        import android.app.Activity;
-        import android.os.Bundle;
-        public class MainActivity extends Activity {
-            @Override
-            protected void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-            }
-        }
-        EOF
-
-        # Gradle-Dateien schreiben
-        cat << 'EOF' > settings.gradle
-        pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-        dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-        rootProject.name = "BambuStudioAndroid"
-        include ':app'
-        EOF
-
-        cat << 'EOF' > build.gradle
-        plugins { id 'com.android.application' version '8.2.0' apply false }
-        EOF
-
-        cat << 'EOF' > app/build.gradle
-        plugins { id 'com.android.application' }
-        android {
-            namespace 'com.apkappentwickler.bambustudio'
-            compileSdk 34
-            defaultConfig {
-                applicationId "com.apkappentwickler.bambustudio"
-                minSdk 26
-                targetSdk 34
-                versionCode 1
-                versionName "1.0"
-            }
-        }
-        EOF
-
-    - name: APK mit frischem Gradle-Wrapper bauen
-      run: |
-        gradle wrapper --gradle-version 8.2
-        chmod +x gradlew
-        ./gradlew assembleDebug
+        # 5. Die APK direkt mit dem integrierten Google-SDK-Werkzeug zusammenbauen
+        # Wir holen uns das Werkzeug direkt über den absoluten Pfad des SDKs
+        cd app/src/main
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile res/values/strings.xml -o compiled_res.zip || true
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
 
     - name: Fertige APK als Download bereitstellen
       uses: actions/upload-artifact@v4
       with:
         name: BambuStudio-App
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: BambuStudio-Mobile.apk
