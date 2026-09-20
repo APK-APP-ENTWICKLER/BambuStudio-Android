@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://android.com"
+    package="com.apkappentwickler.bambustudio">
+
+    <!-- Erlaubt die Nutzung von Maus und Tastatur -->
+    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
+    <uses-feature android:name="android.hardware.mainline.app" android:required="false" />
+
+    <application
+        android:label="Bambu Studio Mobile"
+        android:supportsRtl="true">
+        
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation">
+            
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Optimierung für Samsung DeX Fenstermodus -->
+            <meta-data
+                android:name="com.samsung.android.keepalive.density"
+                android:value="true" />
+        </activity>
+    </application>
+</manifest>
+
