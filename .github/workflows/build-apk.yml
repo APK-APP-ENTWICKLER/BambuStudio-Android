@@ -10,129 +10,140 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Code auschecken
-        uses: actions/checkout@v4
+    - name: Code auschecken
+      uses: actions/checkout@v4
 
-      - name: Java 17 einrichten
-        uses: actions/setup-java@v4
-        with:
-          distribution: zulu
-          java-version: '17'
+    - name: Java 17 einrichten
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
 
-      - name: Gradle 8.7 einrichten
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+    - name: Android-Projekt für den Gradle-Build erzeugen
+      shell: bash
+      run: |
+        set -euo pipefail
 
-      - name: Android-Projekt für den Gradle-Build erzeugen
-        shell: bash
-        run: |
-          set -euo pipefail
+        rm -rf app build obj gradle gradlew gradlew.bat \
+          settings.gradle build.gradle BambuStudio-Mobile.apk
 
-          rm -rf app build obj gradle gradlew gradlew.bat \
-            settings.gradle build.gradle BambuStudio-Mobile.apk
+        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
+        mkdir -p app/src/main/res/values
 
-          mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
-          mkdir -p app/src/main/res/values
+        cat > settings.gradle <<'EOF'
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
 
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
 
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+        rootProject.name = 'BambuStudio-Android'
+        include ':app'
+        EOF
 
-          rootProject.name = 'BambuStudio-Android'
-          include ':app'
-          EOF
+        cat > build.gradle <<'EOF'
+        plugins {
+            id 'com.android.application' version '8.5.2' apply false
+        }
+        EOF
 
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.5.2' apply false
-          }
-          EOF
+        cat << 'EOF' > app/build.gradle
+        plugins {
+            id 'com.android.application'
+        }
 
-          cat > app/build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application'
-          }
+        android {
+            namespace 'com.apkappentwickler.bambustudio'
+            compileSdk 34
 
-          android {
-              namespace 'com.apkappentwickler.bambustudio'
-              compileSdk 34
+            defaultConfig {
+                applicationId 'com.apkappentwickler.bambustudio'
+                minSdk 23
+                targetSdk 34
+                versionCode 1
+                versionName '1.0'
+            }
 
-              defaultConfig {
-                  applicationId 'com.apkappentwickler.bambustudio'
-                  minSdk 23
-                  targetSdk 34
-                  versionCode 1
-                  versionName '1.0'
-              }
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_1_8
+                targetCompatibility JavaVersion.VERSION_1_8
+            }
+        }
+        EOF
 
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
-          }
-          EOF
+        cat > app/src/main/AndroidManifest.xml <<'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application
+                android:allowBackup="true"
+                android:label="Bambu Studio Mobile"
+                android:supportsRtl="true">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
 
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:allowBackup="true"
-                  android:label="Bambu Studio Mobile"
-                  android:supportsRtl="true">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+        cat > app/src/main/res/values/strings.xml <<'EOF'
+        <resources>
+            <string name="app_name">Bambu Studio Mobile</string>
+        </resources>
+        EOF
 
-          cat > app/src/main/res/values/strings.xml <<'EOF'
-          <resources>
-              <string name="app_name">Bambu Studio Mobile</string>
-          </resources>
-          EOF
+        cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
+        package com.apkappentwickler.bambustudio;
 
-          cat > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java <<'EOF'
-          package com.apkappentwickler.bambustudio;
+        import android.app.Activity;
+        import android.os.Bundle;
+        import android.widget.TextView;
 
-          import android.app.Activity;
-          import android.os.Bundle;
+        public class MainActivity extends Activity {
+            static {
+                // Lädt deinen echten C++ Kern direkt beim App-Start!
+                System.loadLibrary("bambustudio_core");
+            }
 
-          public class MainActivity extends Activity {
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-              }
-          }
-          EOF
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+                TextView tv = new TextView(this);
+                tv.setText("Bambu Studio Mobile: App & C++ Kern erfolgreich geladen!");
+                tv.setTextSize(24);
+                setContentView(tv);
+            }
+        }
+        EOF
 
-          gradle wrapper --gradle-version 8.7 --distribution-type bin
+        gradle wrapper --gradle-version 8.7 --distribution-type bin
 
-      - name: Debug-APK mit Gradle bauen
-        run: ./gradlew --no-daemon --stacktrace assembleDebug
+    - name: Native-Bibliothek für arm64-v8a kopieren
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p app/src/main/jniLibs/arm64-v8a
+        cp libbambustudio_core.so app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
 
-      - name: Fertige APK als Download bereitstellen
-        uses: actions/upload-artifact@v4
-        with:
-          name: BambuStudio-App
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+    - name: Debug-APK mit Gradle bauen
+      run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+    - name: Fertige APK als Download bereitstellen
+      uses: actions/upload-artifact@v4
+      with:
+        name: BambuStudio-App
+        path: app/build/outputs/apk/debug/app-debug.apk
