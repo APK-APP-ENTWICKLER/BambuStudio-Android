@@ -19,13 +19,16 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: App-Projektstruktur aufbauen
+    - name: Alten Ballast löschen und App-Projekt sauber erzeugen
       run: |
-        # 1. Erstellt die exakten Ordner
+        # 1. Löscht alle losen Dateien im Hauptordner, damit der Compiler nicht verwirrt wird
+        find . -maxdepth 1 -type f -not -name "README.md" -delete
+        
+        # 2. Erstellt die exakten Ordner neu
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # 2. Schreibt das perfekte Manifest
+        # 3. Schreibt das fehlerfreie Manifest
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://android.com"
@@ -41,14 +44,14 @@ jobs:
         </manifest>
         EOF
 
-        # 3. Erstellt die Ressourcen-Datei
+        # 4. Erstellt die Ressourcen-Datei
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
         </resources>
         EOF
 
-        # 4. Erstellt die Java-Startdatei
+        # 5. Erstellt die Java-Startdatei
         cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
         package com.apkappentwickler.bambustudio;
         import android.app.Activity;
@@ -61,7 +64,7 @@ jobs:
         }
         EOF
 
-        # 5. Schreibt die modernen Gradle-Dateien
+        # 6. Schreibt die modernen Gradle-Dateien
         cat << 'EOF' > settings.gradle
         pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
         dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -90,7 +93,6 @@ jobs:
 
     - name: APK mit modernem Gradle-Wrapper bauen
       run: |
-        # Dieser Befehl lädt automatisch das perfekte, fehlerfreie Gradle-System herunter!
         gradle wrapper --gradle-version 8.2
         chmod +x gradlew
         ./gradlew assembleDebug
