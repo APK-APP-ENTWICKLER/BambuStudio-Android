@@ -2,298 +2,458 @@ name: Build Bambu Studio APK
 
 on:
   push:
-    branches: [ '*' ]
+    branches:
+      - "*"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Code auschecken
-      uses: actions/checkout@v4
+      - name: Code auschecken
+        uses: actions/checkout@v4
 
-    - name: Java 17 einrichten
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
+      - name: Java 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "17"
 
-    - name: Android-Projekt für den Gradle-Build erzeugen
-      shell: bash
-      run: |
-        set -euo pipefail
+      - name: Android SDK und Build-Tools einrichten
+        uses: android-actions/setup-android@v3
 
-        rm -rf app build obj gradle gradlew gradlew.bat \
-          settings.gradle build.gradle BambuStudio-Mobile.apk
+      - name: Gradle einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
 
-        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
-        mkdir -p app/src/main/res/values
-        mkdir -p app/src/main/jniLibs/arm64-v8a
+      - name: Android-Projekt für den Gradle-Build erzeugen
+        shell: bash
+        run: |
+          set -euo pipefail
 
-        cat > settings.gradle <<'EOF'
-        pluginManagement {
-            repositories {
-                google()
-                mavenCentral()
-                gradlePluginPortal()
-            }
-        }
+          rm -rf app build obj gradle gradlew gradlew.bat \
+            settings.gradle build.gradle BambuStudio-Mobile.apk
 
-        dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
+          mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/jniLibs/arm64-v8a
 
-        rootProject.name = 'BambuStudio-Android'
-        include ':app'
-        EOF
+          cat > settings.gradle <<'EOF'
+          import org.gradle.api.initialization.resolve.RepositoriesMode
 
-        cat > build.gradle <<'EOF'
-        plugins {
-            id 'com.android.application' version '8.5.2' apply false
-        }
-        EOF
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
 
-        cat <<'EOF' > app/build.gradle
-        plugins {
-            id 'com.android.application'
-        }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
 
-        android {
-            namespace 'com.apkappentwickler.bambustudio'
-            compileSdk 34
+          rootProject.name = 'BambuStudio-Android'
+          include ':app'
+          EOF
 
-            defaultConfig {
-                applicationId 'com.apkappentwickler.bambustudio'
-                minSdk 23
-                targetSdk 34
-                versionCode 1
-                versionName '1.0'
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
 
-                ndk {
-                    abiFilters 'arm64-v8a'
-                }
-            }
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
 
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_1_8
-                targetCompatibility JavaVersion.VERSION_1_8
-            }
-        }
-        EOF
+          android {
+              namespace 'com.apkappentwickler.bambustudio'
+              compileSdk 34
 
-        cat > app/src/main/AndroidManifest.xml <<'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-            package="com.apkappentwickler.bambustudio">
+              defaultConfig {
+                  applicationId 'com.apkappentwickler.bambustudio'
+                  minSdk 23
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
 
-            <application
-                android:allowBackup="true"
-                android:label="@string/app_name"
-                android:supportsRtl="true"
-                android:theme="@style/AppTheme">
+                  ndk {
+                      abiFilters 'arm64-v8a'
+                  }
+              }
 
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          EOF
 
-        cat > app/src/main/res/values/strings.xml <<'EOF'
-        <resources>
-            <string name="app_name">Bambu Studio Mobile</string>
-        </resources>
-        EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.apkappentwickler.bambustudio">
 
-        cat > app/src/main/res/values/styles.xml <<'EOF'
-        <resources>
-            <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
-                <item name="android:colorAccent">#00AEEC</item>
-                <item name="android:navigationBarColor">#101419</item>
-                <item name="android:statusBarColor">#101419</item>
-                <item name="android:windowLightStatusBar">false</item>
-            </style>
-        </resources>
-        EOF
+              <application
+                  android:allowBackup="true"
+                  android:label="@string/app_name"
+                  android:supportsRtl="true"
+                  android:theme="@style/AppTheme">
 
-        cat <<'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
-        package com.apkappentwickler.bambustudio;
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
 
-        import android.app.Activity;
-        import android.content.Intent;
-        import android.graphics.Color;
-        import android.graphics.Typeface;
-        import android.graphics.drawable.GradientDrawable;
-        import android.net.Uri;
-        import android.os.Bundle;
-        import android.view.Gravity;
-        import android.view.View;
-        import android.view.ViewGroup;
-        import android.widget.Button;
-        import android.widget.LinearLayout;
-        import android.widget.TextView;
-        import android.widget.Toast;
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">Bambu Studio Mobile</string>
+          </resources>
+          EOF
 
-        public class MainActivity extends Activity {
-            private static final int PICK_MODEL_REQUEST = 42;
-            private static final int BG = Color.rgb(16, 20, 25);
-            private static final int SURFACE = Color.rgb(28, 34, 41);
-            private static final int TEXT = Color.rgb(242, 245, 247);
-            private static final int MUTED = Color.rgb(156, 169, 179);
-            private static final int CYAN = Color.rgb(0, 174, 236);
+          cat > app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                  <item name="android:colorAccent">#00AEEC</item>
+                  <item name="android:navigationBarColor">#101419</item>
+                  <item name="android:statusBarColor">#101419</item>
+                  <item name="android:windowLightStatusBar">false</item>
+              </style>
+          </resources>
+          EOF
 
-            static {
-                System.loadLibrary("bambustudio_core");
-            }
+          cat > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java <<'EOF'
+          package com.apkappentwickler.bambustudio;
 
-            @Override
-            protected void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-                getWindow().setStatusBarColor(BG);
-                getWindow().setNavigationBarColor(BG);
-                setContentView(createContentView());
-            }
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.graphics.Color;
+          import android.graphics.Typeface;
+          import android.graphics.drawable.GradientDrawable;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Toast;
 
-            private View createContentView() {
-                LinearLayout root = new LinearLayout(this);
-                root.setOrientation(LinearLayout.VERTICAL);
-                root.setBackgroundColor(BG);
-                root.setPadding(dp(28), dp(22), dp(28), dp(24));
+          public class MainActivity extends Activity {
+              private static final int PICK_MODEL_REQUEST = 42;
+              private static final int BG = Color.rgb(16, 20, 25);
+              private static final int SURFACE = Color.rgb(28, 34, 41);
+              private static final int TEXT = Color.rgb(242, 245, 247);
+              private static final int MUTED = Color.rgb(156, 169, 179);
+              private static final int CYAN = Color.rgb(0, 174, 236);
 
-                LinearLayout toolbar = new LinearLayout(this);
-                toolbar.setGravity(Gravity.CENTER_VERTICAL);
+              static {
+                  System.loadLibrary("bambustudio_core");
+              }
 
-                TextView mark = label("B", 24, CYAN);
-                mark.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                mark.setGravity(Gravity.CENTER);
-                mark.setBackground(round(CYAN, 12));
-                toolbar.addView(mark, new LinearLayout.LayoutParams(dp(48), dp(48)));
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  getWindow().setStatusBarColor(BG);
+                  getWindow().setNavigationBarColor(BG);
+                  setContentView(createContentView());
+              }
 
-                TextView brand = label("  Bambu Studio", 21, TEXT);
-                brand.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                toolbar.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
+              private View createContentView() {
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setBackgroundColor(BG);
+                  root.setPadding(dp(28), dp(22), dp(28), dp(24));
 
-                TextView version = label("MOBILE", 11, MUTED);
-                version.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                toolbar.addView(version);
+                  LinearLayout toolbar = new LinearLayout(this);
+                  toolbar.setGravity(Gravity.CENTER_VERTICAL);
 
-                root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
+                  TextView mark = label("B", 24, CYAN);
+                  mark.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  mark.setGravity(Gravity.CENTER);
+                  mark.setBackground(round(CYAN, 12));
+                  toolbar.addView(mark, new LinearLayout.LayoutParams(dp(48), dp(48)));
 
-                TextView heading = label("Bereit für dein nächstes\n3D-Projekt?", 32, TEXT);
-                heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                heading.setPadding(0, dp(22), 0, dp(8));
-                root.addView(heading);
+                  TextView brand = label("  Bambu Studio", 21, TEXT);
+                  brand.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  toolbar.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
 
-                TextView intro = label("Lade ein Modell und starte den Slicing-Workflow.", 16, MUTED);
-                intro.setPadding(0, dp(14), 0, dp(26));
-                root.addView(intro);
+                  TextView version = label("MOBILE", 11, MUTED);
+                  version.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  toolbar.addView(version);
 
-                LinearLayout card = new LinearLayout(this);
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setPadding(dp(20), dp(20), dp(20), dp(20));
-                card.setBackground(round(SURFACE, 18));
+                  root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
 
-                TextView cardTitle = label("MODELL IMPORTIEREN", 12, CYAN);
-                cardTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                card.addView(cardTitle);
+                  TextView heading = label("Bereit für dein nächstes\n3D-Projekt?", 32, TEXT);
+                  heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  heading.setPadding(0, dp(22), 0, dp(8));
+                  root.addView(heading);
 
-                TextView hint = label("Unterstützte Formate: STL und 3MF", 14, MUTED);
-                hint.setPadding(0, dp(8), 0, dp(18));
-                card.addView(hint);
+                  TextView intro = label("Lade ein Modell und starte den Slicing-Workflow.", 16, MUTED);
+                  intro.setPadding(0, dp(14), 0, dp(26));
+                  root.addView(intro);
 
-                Button load = new Button(this);
-                load.setAllCaps(false);
-                load.setText("3D-Modell für Slicing laden (.stl/.3mf)");
-                load.setTextColor(Color.WHITE);
-                load.setTextSize(16);
-                load.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                load.setGravity(Gravity.CENTER);
-                load.setMinHeight(dp(58));
-                load.setPadding(dp(12), 0, dp(12), 0);
-                load.setBackground(round(CYAN, 12));
-                load.setOnClickListener(v -> openModelPicker());
+                  LinearLayout card = new LinearLayout(this);
+                  card.setOrientation(LinearLayout.VERTICAL);
+                  card.setPadding(dp(20), dp(20), dp(20), dp(20));
+                  card.setBackground(round(SURFACE, 18));
 
-                card.addView(load, new LinearLayout.LayoutParams(-1, dp(58)));
-                root.addView(card, new LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT));
+                  TextView cardTitle = label("MODELL IMPORTIEREN", 12, CYAN);
+                  cardTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  card.addView(cardTitle);
 
-                TextView footer = label("Bambu Studio Core  •  Bereit", 13, MUTED);
-                footer.setGravity(Gravity.CENTER);
-                footer.setPadding(0, dp(26), 0, 0);
-                root.addView(footer);
+                  TextView hint = label("Unterstützte Formate: STL und 3MF", 14, MUTED);
+                  hint.setPadding(0, dp(8), 0, dp(18));
+                  card.addView(hint);
 
-                return root;
-            }
+                  Button load = new Button(this);
+                  load.setAllCaps(false);
+                  load.setText("3D-Modell für Slicing laden (.stl/.3mf)");
+                  load.setTextColor(Color.WHITE);
+                  load.setTextSize(16);
+                  load.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  load.setGravity(Gravity.CENTER);
+                  load.setMinHeight(dp(58));
+                  load.setPadding(dp(12), 0, dp(12), 0);
+                  load.setBackground(round(CYAN, 12));
+                  load.setOnClickListener(v -> openModelPicker());
 
-            private void openModelPicker() {
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*");
-                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-                        "model/stl",
-                        "application/vnd.ms-pki.stl",
-                        "model/3mf",
-                        "application/vnd.ms-package.3dmanufacturing-3dmodel",
-                        "application/octet-stream"
-                });
+                  card.addView(load, new LinearLayout.LayoutParams(-1, dp(58)));
+                  root.addView(card, new LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-                startActivityForResult(Intent.createChooser(intent, "3D-Modell auswählen"), PICK_MODEL_REQUEST);
-            }
+                  TextView footer = label("Bambu Studio Core  •  Bereit", 13, MUTED);
+                  footer.setGravity(Gravity.CENTER);
+                  footer.setPadding(0, dp(26), 0, 0);
+                  root.addView(footer);
 
-            @Override
-            protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-                super.onActivityResult(requestCode, resultCode, data);
-                if (requestCode == PICK_MODEL_REQUEST && resultCode == RESULT_OK && data != null) {
-                    Uri model = data.getData();
-                    if (model != null) {
-                        Toast.makeText(this, "Modell geladen: " + model.getLastPathSegment(), Toast.LENGTH_LONG).show();
-                    }
-                }
-            }
+                  return root;
+              }
 
-            private TextView label(String text, int size, int color) {
-                TextView view = new TextView(this);
-                view.setText(text);
-                view.setTextSize(size);
-                view.setTextColor(color);
-                return view;
-            }
+              private void openModelPicker() {
+                  Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                  intent.addCategory(Intent.CATEGORY_OPENABLE);
+                  intent.setType("*/*");
+                  intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                          "model/stl",
+                          "application/vnd.ms-pki.stl",
+                          "model/3mf",
+                          "application/vnd.ms-package.3dmanufacturing-3dmodel",
+                          "application/octet-stream"
+                  });
 
-            private GradientDrawable round(int color, int radius) {
-                GradientDrawable drawable = new GradientDrawable();
-                drawable.setColor(color);
-                drawable.setCornerRadius(dp(radius));
-                return drawable;
-            }
+                  startActivityForResult(
+                          Intent.createChooser(intent, "3D-Modell auswählen"),
+                          PICK_MODEL_REQUEST
+                  );
+              }
 
-            private int dp(int value) {
-                return Math.round(value * getResources().getDisplayMetrics().density);
-            }
-        }
-        EOF
+              @Override
+              protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                  super.onActivityResult(requestCode, resultCode, data);
 
-        gradle wrapper --gradle-version 8.7 --distribution-type bin
+                  if (requestCode == PICK_MODEL_REQUEST
+                          && resultCode == RESULT_OK
+                          && data != null) {
+                      Uri model = data.getData();
 
-    - name: Native-Bibliothek für arm64-v8a kopieren
-      shell: bash
-      run: |
-        set -euo pipefail
-        cp libbambustudio_core.so app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
+                      if (model != null) {
+                          Toast.makeText(
+                                  this,
+                                  "Modell geladen: " + model.getLastPathSegment(),
+                                  Toast.LENGTH_LONG
+                          ).show();
+                      }
+                  }
+              }
 
-    - name: Debug-APK mit Gradle bauen
-      run: ./gradlew --no-daemon --stacktrace assembleDebug
+              private TextView label(String text, int size, int color) {
+                  TextView view = new TextView(this);
+                  view.setText(text);
+                  view.setTextSize(size);
+                  view.setTextColor(color);
+                  return view;
+              }
 
-    - name: Fertige APK als Download bereitstellen
-      uses: actions/upload-artifact@v4
-      with:
-        name: BambuStudio-App
-        path: app/build/outputs/apk/debug/app-debug.apk
+              private GradientDrawable round(int color, int radius) {
+                  GradientDrawable drawable = new GradientDrawable();
+                  drawable.setColor(color);
+                  drawable.setCornerRadius(dp(radius));
+                  return drawable;
+              }
+
+              private int dp(int value) {
+                  return Math.round(
+                          value * getResources().getDisplayMetrics().density
+                  );
+              }
+          }
+          EOF
+
+      - name: Gradle Wrapper erzeugen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gradle wrapper \
+            --gradle-version 8.7 \
+            --distribution-type bin
+
+          chmod +x ./gradlew
+
+      - name: Native-Bibliothek für arm64-v8a bereitstellen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+
+          NATIVE_LIBRARY="$(find . \
+            -path './app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so' -prune -o \
+            -type f \
+            -name 'libbambustudio_core.so' \
+            -print \
+            | head -n 1)"
+
+          if [ -z "${NATIVE_LIBRARY}" ]; then
+            echo "::error::libbambustudio_core.so wurde im Repository nicht gefunden."
+            exit 1
+          fi
+
+          cp "${NATIVE_LIBRARY}" \
+            app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
+
+          test -s app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
+
+          file app/src/main/jniLibs/arm64-v8a/libbambustudio_core.so
+
+      - name: Debug-APK mit Gradle bauen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ./gradlew \
+            --no-daemon \
+            --stacktrace \
+            clean \
+            assembleDebug
+
+      - name: APK mit jar prüfen
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          test -f "${APK}"
+          jar tf "${APK}" > apk-contents.txt
+
+          grep -q "lib/arm64-v8a/libbambustudio_core.so" apk-contents.txt
+
+      - name: Android Build-Tools ermitteln
+        id: build-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUILD_TOOLS_DIR="$(
+            find "${ANDROID_SDK_ROOT}/build-tools" \
+              -mindepth 1 \
+              -maxdepth 1 \
+              -type d \
+              | sort -V \
+              | tail -n 1
+          )"
+
+          if [ -z "${BUILD_TOOLS_DIR}" ]; then
+            echo "::error::Keine Android Build-Tools gefunden."
+            exit 1
+          fi
+
+          echo "dir=${BUILD_TOOLS_DIR}" >> "${GITHUB_OUTPUT}"
+
+      - name: APK mit zipalign ausrichten
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          ALIGNED_APK="app/build/outputs/apk/debug/app-debug-aligned.apk"
+
+          "${{ steps.build-tools.outputs.dir }}/zipalign" \
+            -f \
+            -p \
+            4 \
+            "${APK}" \
+            "${ALIGNED_APK}"
+
+          "${{ steps.build-tools.outputs.dir }}/zipalign" \
+            -c \
+            -P 16 \
+            -v \
+            4 \
+            "${ALIGNED_APK}"
+
+      - name: APK neu signieren
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ALIGNED_APK="app/build/outputs/apk/debug/app-debug-aligned.apk"
+          SIGNED_APK="app/build/outputs/apk/debug/BambuStudio-App.apk"
+          DEBUG_KEYSTORE="${HOME}/.android/debug.keystore"
+
+          if [ ! -f "${DEBUG_KEYSTORE}" ]; then
+            mkdir -p "${HOME}/.android"
+
+            keytool \
+              -genkeypair \
+              -v \
+              -keystore "${DEBUG_KEYSTORE}" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          cp "${ALIGNED_APK}" "${SIGNED_APK}"
+
+          "${{ steps.build-tools.outputs.dir }}/apksigner" sign \
+            --ks "${DEBUG_KEYSTORE}" \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --ks-key-alias androiddebugkey \
+            --out "${SIGNED_APK}" \
+            "${ALIGNED_APK}"
+
+          "${{ steps.build-tools.outputs.dir }}/apksigner" verify \
+            --verbose \
+            "${SIGNED_APK}"
+
+      - name: Fertige APK als Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: BambuStudio-App
+          path: app/build/outputs/apk/debug/BambuStudio-App.apk
+          if-no-files-found: error
