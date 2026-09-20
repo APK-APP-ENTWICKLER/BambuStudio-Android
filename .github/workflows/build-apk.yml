@@ -19,21 +19,18 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Android SDK bereitstellen
-      uses: android-actions/setup-android@v3
-
-    - name: Projekt-Struktur automatisch erzeugen
+    - name: Android-Projekt per Autopilot erzeugen
       run: |
+        # Hier werden alle Ordner absolut fehlerfrei angelegt
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # Manifest erstellen
+        # 1. Manifest erstellen
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://android.com"
-            package="com.apkappentwickler.bambustudio">
+        <manifest xmlns:android="http://android.com">
             <application android:label="Bambu Studio Mobile" android:allowBackup="true" android:supportsRtl="true">
-                <activity android:name=".MainActivity" android:exported="true">
+                <activity android:name="com.apkappentwickler.bambustudio.MainActivity" android:exported="true">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
@@ -43,40 +40,49 @@ jobs:
         </manifest>
         EOF
 
-        # Strings erstellen
+        # 2. Ressourcen-Strings erstellen
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
         </resources>
         EOF
 
-        # Java Hauptdatei erstellen
+        # 3. Java-Hauptdatei erstellen
         cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
         package com.apkappentwickler.bambustudio;
         import android.app.Activity;
         import android.os.Bundle;
+        import android.widget.TextView;
         public class MainActivity extends Activity {
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
+                TextView tv = new TextView(this);
+                tv.setText("Bambu Studio Mobile: App erfolgreich gestartet!");
+                tv.setTextSize(24);
+                setContentView(tv);
             }
         }
         EOF
 
-        # Gradle Konfigurationen erstellen
+        # 4. Gradle-Konfigurationsdateien erzeugen
         cat << 'EOF' > settings.gradle
-        pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-        dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
         rootProject.name = "BambuStudioAndroid"
         include ':app'
         EOF
 
         cat << 'EOF' > build.gradle
-        plugins { id 'com.android.application' version '8.2.0' apply false }
+        buildscript {
+            repositories { google(); mavenCentral() }
+            dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+        }
+        allprojects {
+            repositories { google(); mavenCentral() }
+        }
         EOF
 
         cat << 'EOF' > app/build.gradle
-        plugins { id 'com.android.application' }
+        apply plugin: 'com.android.application'
         android {
             namespace 'com.apkappentwickler.bambustudio'
             compileSdk 34
@@ -90,14 +96,17 @@ jobs:
         }
         EOF
 
-    - name: APK mit Gradle bauen
+    - name: Android SDK bereitstellen
+      uses: android-actions/setup-android@v3
+
+    - name: APK mit Gradle kompilieren
       run: |
-        chmod +x gradlew || true
-        gradle assembleDebug
+        gradle wrapper
+        chmod +x gradlew
+        ./gradlew assembleDebug
 
     - name: Fertige APK als Download bereitstellen
       uses: actions/upload-artifact@v4
       with:
         name: BambuStudio-App
         path: app/build/outputs/apk/debug/app-debug.apk
- 
