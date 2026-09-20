@@ -1,0 +1,63 @@
+name: Build Bambu Studio APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Code auschecken
+      uses: actions/checkout@v4
+
+    - name: Java 17 einrichten
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Android SDK bereitstellen
+      uses: android-actions/setup-android@v3
+
+    - name: App-Ordnerstruktur und Dateien vorbereiten
+      run: |
+        mkdir -p app/src/main/res/values
+        
+        # Erstellt eine minimale Manifest-Datei direkt im Skript
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://android.com"
+            package="com.apkappentwickler.bambustudio">
+            <application android:label="Bambu Studio Mobile">
+                <activity android:name=".MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # Erstellt eine leere String-Ressource, damit das APK-Tool nicht meckert
+        cat << 'EOF' > app/src/main/res/values/strings.xml
+        <resources>
+            <string name="app_name">Bambu Studio Mobile</string>
+        </resources>
+        EOF
+
+    - name: APK generieren
+      run: |
+        cd app/src/main
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile --dir res -o compiled_res.zip || true
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
+
+    - name: Fertige APK als Download bereitstellen
+      uses: actions/upload-artifact@v4
+      with:
+        name: BambuStudio-App
+        path: BambuStudio-Mobile.apk
+
