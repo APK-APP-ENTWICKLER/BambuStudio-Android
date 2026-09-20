@@ -167,9 +167,10 @@ jobs:
               private static final int MUTED = Color.rgb(156, 169, 179);
               private static final int CYAN = Color.rgb(0, 174, 236);
 
-              static {
-                  System.loadLibrary("bambustudio_core");
-              }
+              // Temporarily disabled while the JNI bridge is being aligned.
+              // static {
+              //     System.loadLibrary("bambustudio_core");
+              // }
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
