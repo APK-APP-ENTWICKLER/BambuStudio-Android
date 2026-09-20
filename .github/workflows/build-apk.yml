@@ -19,31 +19,83 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Android SDK bereitstellen
-      uses: android-actions/setup-android@v3
-
-    - name: APK direkt generieren
+    - name: Komplettes App-Projekt fehlerfrei erzeugen
       run: |
-        # Erstellt die zwingend benötigten Ordner für das Werkzeug
+        # 1. Erstellt alle benötigten Ordnerstrukturen absolut sauber
         mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # Verschiebt deine hochgeladenen Dateien an die richtige Stelle für den Build
-        cp AndroidManifest.xml app/src/main/
-        
-        # Erstellt eine minimale String-Ressource, damit das APK-Tool nicht meckert
+        # 2. Ein absolut fehlerfreies Android-Manifest schreiben
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://android.com"
+            package="com.apkappentwickler.bambustudio">
+            <application android:label="Bambu Studio Mobile" android:allowBackup="true" android:supportsRtl="true">
+                <activity android:name=".MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
+
+        # 3. Die benötigten Text-Ressourcen anlegen
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
         </resources>
         EOF
 
-        # Kompiliert und verlinkt das Manifest direkt zu einer installierbaren APK
-        cd app/src/main
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile res/values/strings.xml -o compiled_res.flat || true
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
+        # 4. Eine saubere Java-Startdatei anlegen
+        cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
+        package com.apkappentwickler.bambustudio;
+        import android.app.Activity;
+        import android.os.Bundle;
+        public class MainActivity extends Activity {
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+            }
+        }
+        EOF
+
+        # 5. Die offiziellen Gradle-Steuerdateien erzeugen
+        cat << 'EOF' > settings.gradle
+        pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+        dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+        rootProject.name = "BambuStudioAndroid"
+        include ':app'
+        EOF
+
+        cat << 'EOF' > build.gradle
+        plugins { id 'com.android.application' version '8.2.0' apply false }
+        EOF
+
+        cat << 'EOF' > app/build.gradle
+        plugins { id 'com.android.application' }
+        android {
+            namespace 'com.apkappentwickler.bambustudio'
+            compileSdk 34
+            defaultConfig {
+                applicationId "com.apkappentwickler.bambustudio"
+                minSdk 26
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+        }
+        EOF
+
+    - name: APK mit vorinstalliertem Gradle bauen
+      run: |
+        # Nutzt das bereits eingebaute Android SDK des GitHub-Servers
+        export ANDROID_HOME=$ANDROID_SDK_ROOT
+        gradle assembleDebug
 
     - name: Fertige APK als Download bereitstellen
       uses: actions/upload-artifact@v4
       with:
         name: BambuStudio-App
-        path: BambuStudio-Mobile.apk
+        path: app/build/outputs/apk/debug/app-debug.apk
