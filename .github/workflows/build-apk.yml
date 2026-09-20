@@ -21,19 +21,19 @@ jobs:
 
     - name: Android-Projekt mit Java-Ordner fehlerfrei aufbauen
       run: |
-        # 1. Tisch komplett freiräumen, um alte Konflikte zu vermeiden
+        # 1. Tisch komplett freiräumen
         rm -rf app android build
         find . -maxdepth 1 -type f -not -name "README.md" -delete
         
-        # 2. Die Ordnerstruktur inklusive Java-Pfad exakt wieder aufbauen
+        # 2. Die Ordnerstruktur exakt wieder aufbauen
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         mkdir -p obj
         
-        # 3. Das fehlerfreie Google-Standard-Manifest schreiben
+        # 3. Das korrigierte Manifest mit dem RICHTIGEN Namespace
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://android.com"
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
             package="com.apkappentwickler.bambustudio">
             <application
                 android:allowBackup="true"
@@ -58,7 +58,7 @@ jobs:
         </resources>
         EOF
 
-        # 5. Die Java-Startdatei wieder einfügen
+        # 5. Die Java-Startdatei einfügen
         cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
         package com.apkappentwickler.bambustudio;
         import android.app.Activity;
@@ -84,7 +84,7 @@ jobs:
         # 8. Den Maschinencode in die APK einbetten
         zip -uj BambuStudio-Unsigned.apk classes.dex
         
-        # 9. Die APK für dein Tablet signieren
+        # 9. Die APK debug-signieren
         $ANDROID_HOME/build-tools/34.0.0/apksigner debug --apk BambuStudio-Unsigned.apk --out BambuStudio-Mobile.apk
 
     - name: Fertige APK als Download bereitstellen
