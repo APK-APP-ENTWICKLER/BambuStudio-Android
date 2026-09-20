@@ -151,10 +151,12 @@ jobs:
           import android.graphics.drawable.GradientDrawable;
           import android.net.Uri;
           import android.os.Bundle;
+          import android.text.InputType;
           import android.view.Gravity;
           import android.view.View;
           import android.view.ViewGroup;
           import android.widget.Button;
+          import android.widget.EditText;
           import android.widget.LinearLayout;
           import android.widget.TextView;
           import android.widget.Toast;
@@ -166,6 +168,8 @@ jobs:
               private static final int TEXT = Color.rgb(242, 245, 247);
               private static final int MUTED = Color.rgb(156, 169, 179);
               private static final int CYAN = Color.rgb(0, 174, 236);
+
+              private Button slicingButton;
 
               // Temporarily disabled while the JNI bridge is being aligned.
               // static {
@@ -240,7 +244,45 @@ jobs:
                   load.setOnClickListener(v -> openModelPicker());
 
                   card.addView(load, new LinearLayout.LayoutParams(-1, dp(58)));
-                  root.addView(card, new LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                  EditText layerHeight = inputField("Schichthöhe (mm)", "0.20");
+                  LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
+                          -1, dp(56));
+                  inputParams.topMargin = dp(16);
+                  card.addView(layerHeight, inputParams);
+
+                  EditText infill = inputField("Infill (%)", "20");
+                  LinearLayout.LayoutParams infillParams = new LinearLayout.LayoutParams(
+                          -1, dp(56));
+                  infillParams.topMargin = dp(12);
+                  card.addView(infill, infillParams);
+
+                  slicingButton = new Button(this);
+                  slicingButton.setAllCaps(false);
+                  slicingButton.setText("Slicing starten (G-Code generieren)");
+                  slicingButton.setTextColor(Color.WHITE);
+                  slicingButton.setTextSize(16);
+                  slicingButton.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  slicingButton.setGravity(Gravity.CENTER);
+                  slicingButton.setMinHeight(dp(64));
+                  slicingButton.setPadding(dp(12), 0, dp(12), 0);
+                  slicingButton.setBackground(round(CYAN, 12));
+                  slicingButton.setEnabled(false);
+                  slicingButton.setAlpha(0.5f);
+                  slicingButton.setOnClickListener(v -> {
+                      Toast.makeText(
+                              this,
+                              "Slicing gestartet – G-Code wird generiert.",
+                              Toast.LENGTH_LONG
+                      ).show();
+                  });
+                  LinearLayout.LayoutParams slicingParams = new LinearLayout.LayoutParams(
+                          -1, dp(64));
+                  slicingParams.topMargin = dp(16);
+                  card.addView(slicingButton, slicingParams);
+
+                  root.addView(card, new LinearLayout.LayoutParams(-1,
+                          ViewGroup.LayoutParams.WRAP_CONTENT));
 
                   TextView footer = label("Bambu Studio Core  •  Bereit", 13, MUTED);
                   footer.setGravity(Gravity.CENTER);
@@ -248,6 +290,21 @@ jobs:
                   root.addView(footer);
 
                   return root;
+              }
+
+              private EditText inputField(String hint, String value) {
+                  EditText input = new EditText(this);
+                  input.setHint(hint);
+                  input.setText(value);
+                  input.setTextColor(TEXT);
+                  input.setHintTextColor(MUTED);
+                  input.setTextSize(16);
+                  input.setSingleLine(true);
+                  input.setPadding(dp(16), 0, dp(16), 0);
+                  input.setInputType(InputType.TYPE_CLASS_NUMBER
+                          | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                  input.setBackground(round(BG, 10));
+                  return input;
               }
 
               private void openModelPicker() {
@@ -278,6 +335,10 @@ jobs:
                       Uri model = data.getData();
 
                       if (model != null) {
+                          if (slicingButton != null) {
+                              slicingButton.setEnabled(true);
+                              slicingButton.setAlpha(1.0f);
+                          }
                           Toast.makeText(
                                   this,
                                   "Modell geladen: " + model.getLastPathSegment(),
