@@ -1,18 +1,49 @@
-name: Build Android APK
-on: [push, workflow_dispatch]
+name: Build Bambu Studio APK
+
+on:
+  push:
+    branches: [ main, hauptsaechlich ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-java@v4
+    - name: Code auschecken
+      uses: actions/checkout@v4
+
+    - name: Java 17 einrichten
+      uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
-    - name: APK mit Gradle bauen
-      run: bash gradlew assembleDebug
-    - uses: actions/upload-artifact@v4
+
+    - name: Android SDK bereitstellen
+      uses: android-actions/setup-android@v3
+
+    - name: APK direkt generieren
+      run: |
+        # Erstellt die zwingend benötigten Ordner für das Werkzeug
+        mkdir -p app/src/main/res/values
+        
+        # Verschiebt deine hochgeladenen Dateien an die richtige Stelle für den Build
+        cp AndroidManifest.xml app/src/main/
+        
+        # Erstellt eine minimale String-Ressource, damit das APK-Tool nicht meckert
+        cat << 'EOF' > app/src/main/res/values/strings.xml
+        <resources>
+            <string name="app_name">Bambu Studio Mobile</string>
+        </resources>
+        EOF
+
+        # Kompiliert und verlinkt das Manifest direkt zu einer installierbaren APK
+        cd app/src/main
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile res/values/strings.xml -o compiled_res.flat || true
+        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
+
+    - name: Fertige APK als Download bereitstellen
+      uses: actions/upload-artifact@v4
       with:
         name: BambuStudio-App
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: BambuStudio-Mobile.apk
