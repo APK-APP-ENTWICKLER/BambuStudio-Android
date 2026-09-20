@@ -83,7 +83,7 @@ jobs:
 
         cat > app/src/main/AndroidManifest.xml <<'EOF'
         <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+        <manifest xmlns:android="http://android.com">
             <application
                 android:allowBackup="true"
                 android:label="Bambu Studio Mobile"
@@ -114,16 +114,16 @@ jobs:
         import android.widget.TextView;
 
         public class MainActivity extends Activity {
-            static {
-                // Lädt deinen echten C++ Kern direkt beim App-Start!
-                System.loadLibrary("bambustudio_core");
-            }
+            // static {
+            //     // Temporär deaktiviert, um den Absturz beim Starten zu testen!
+            //     System.loadLibrary("bambustudio_core");
+            // }
 
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
                 TextView tv = new TextView(this);
-                tv.setText("Bambu Studio Mobile: App & C++ Kern erfolgreich geladen!");
+                tv.setText("Bambu Studio Mobile: Gehäuse läuft absolut stabil!");
                 tv.setTextSize(24);
                 setContentView(tv);
             }
