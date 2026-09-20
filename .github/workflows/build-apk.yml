@@ -10,85 +10,129 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Code auschecken
-      uses: actions/checkout@v4
+      - name: Code auschecken
+        uses: actions/checkout@v4
 
-    - name: Java 17 einrichten
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
+      - name: Java 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
 
-    - name: Android-Projekt mit Java-Ordner fehlerfrei aufbauen
-      run: |
-        # 1. Tisch komplett freiräumen
-        rm -rf app android build obj classes.zip classes.dex BambuStudio-Unsigned.apk BambuStudio-Mobile.apk
-        find . -maxdepth 1 -type f -not -name "README.md" -delete
-        
-        # 2. Die Ordnerstruktur exakt wieder aufbauen
-        mkdir -p app/src/main/res/values
-        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
-        mkdir -p obj
-        
-        # 3. Das korrigierte Manifest mit dem RICHTIGEN Namespace
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://android.com"
-            package="com.apkappentwickler.bambustudio">
-            <application
-                android:allowBackup="true"
-                android:label="Bambu Studio Mobile"
-                android:supportsRtl="true">
-                <activity
-                    android:name="com.apkappentwickler.bambustudio.MainActivity"
-                    android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-            </application>
-        </manifest>
-        EOF
+      - name: Gradle 8.7 einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-        # 4. Ressourcen-Datei schreiben
-        cat << 'EOF' > app/src/main/res/values/strings.xml
-        <resources>
-            <string name="app_name">Bambu Studio Mobile</string>
-        </resources>
-        EOF
+      - name: Android-Projekt für den Gradle-Build erzeugen
+        shell: bash
+        run: |
+          set -euo pipefail
 
-        # 5. Die Java-Startdatei einfügen
-        cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
-        package com.apkappentwickler.bambustudio;
-        import android.app.Activity;
-        import android.os.Bundle;
-        public class MainActivity extends Activity {
-            @Override
-            protected void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-            }
-        }
-        EOF
+          rm -rf app build obj gradle gradlew gradlew.bat \
+            settings.gradle build.gradle BambuStudio-Mobile.apk
 
-        # 6. Ressourcen kompilieren und das Manifest fehlerfrei verlinken
-        cd app/src/main
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile res/values/strings.xml -o compiled_res.zip || true
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Unsigned.apk
-        
-        # 7. Die Java-Datei direkt in Android-Maschinencode (DEX) übersetzen
-        cd ../../../
-        javac -source 1.8 -target 1.8 -bootclasspath $ANDROID_HOME/platforms/android-34/android.jar app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java -d obj
-        $ANDROID_HOME/build-tools/34.0.0/d8 obj/com/apkappentwickler/bambustudio/MainActivity.class --lib $ANDROID_HOME/platforms/android-34/android.jar --output .
-        
-        # 8. Den Maschinencode mit dem bordeigenen JAR-Tool in die APK einbetten (Ersetzt den fehlerhaften ZIP-Befehl!)
-        jar uf BambuStudio-Unsigned.apk classes.dex
-        
-        # 9. Die APK debug-signieren
-        $ANDROID_HOME/build-tools/34.0.0/apksigner debug --apk BambuStudio-Unsigned.apk --out BambuStudio-Mobile.apk
+          mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
+          mkdir -p app/src/main/res/values
 
-    - name: Fertige APK als Download bereitstellen
-      uses: actions/upload-artifact@v4
-      with:
-        name: BambuStudio-App
-        path: BambuStudio-Mobile.apk
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.name = 'BambuStudio-Android'
+          include ':app'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.apkappentwickler.bambustudio'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId 'com.apkappentwickler.bambustudio'
+                  minSdk 23
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:label="Bambu Studio Mobile"
+                  android:supportsRtl="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">Bambu Studio Mobile</string>
+          </resources>
+          EOF
+
+          cat > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java <<'EOF'
+          package com.apkappentwickler.bambustudio;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+
+          public class MainActivity extends Activity {
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+              }
+          }
+          EOF
+
+          gradle wrapper --gradle-version 8.7 --distribution-type bin
+
+      - name: Debug-APK mit Gradle bauen
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Fertige APK als Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: BambuStudio-App
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
