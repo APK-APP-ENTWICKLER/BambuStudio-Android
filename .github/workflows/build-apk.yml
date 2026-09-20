@@ -22,16 +22,17 @@ jobs:
     - name: Android SDK bereitstellen
       uses: android-actions/setup-android@v3
 
-    - name: App-Ordnerstruktur und Dateien vorbereiten
+    - name: Projekt-Struktur automatisch erzeugen
       run: |
         mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # Erstellt eine minimale Manifest-Datei direkt im Skript
+        # Manifest erstellen
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://android.com"
             package="com.apkappentwickler.bambustudio">
-            <application android:label="Bambu Studio Mobile">
+            <application android:label="Bambu Studio Mobile" android:allowBackup="true" android:supportsRtl="true">
                 <activity android:name=".MainActivity" android:exported="true">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
@@ -42,23 +43,61 @@ jobs:
         </manifest>
         EOF
 
-        # Erstellt die zwingend benötigte XML-Ressource
+        # Strings erstellen
         cat << 'EOF' > app/src/main/res/values/strings.xml
         <resources>
             <string name="app_name">Bambu Studio Mobile</string>
         </resources>
         EOF
 
-    - name: APK generieren
+        # Java Hauptdatei erstellen
+        cat << 'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
+        package com.apkappentwickler.bambustudio;
+        import android.app.Activity;
+        import android.os.Bundle;
+        public class MainActivity extends Activity {
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+                super.onCreate(savedInstanceState);
+            }
+        }
+        EOF
+
+        # Gradle Konfigurationen erstellen
+        cat << 'EOF' > settings.gradle
+        pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+        dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+        rootProject.name = "BambuStudioAndroid"
+        include ':app'
+        EOF
+
+        cat << 'EOF' > build.gradle
+        plugins { id 'com.android.application' version '8.2.0' apply false }
+        EOF
+
+        cat << 'EOF' > app/build.gradle
+        plugins { id 'com.android.application' }
+        android {
+            namespace 'com.apkappentwickler.bambustudio'
+            compileSdk 34
+            defaultConfig {
+                applicationId "com.apkappentwickler.bambustudio"
+                minSdk 26
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+        }
+        EOF
+
+    - name: APK mit Gradle bauen
       run: |
-        cd app/src/main
-        # Kompiliert die XML-Ressourcen ordnungsgemäß vor
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 compile app/src/main/res/values/strings.xml -o compiled_res.flat || true
-        # Verlinkt das Manifest direkt zu einer rohen APK-Datei
-        $ANDROID_HOME/build-tools/34.0.0/aapt2 link --manifest AndroidManifest.xml -I $ANDROID_HOME/platforms/android-34/android.jar -o ../../../BambuStudio-Mobile.apk
+        chmod +x gradlew || true
+        gradle assembleDebug
 
     - name: Fertige APK als Download bereitstellen
       uses: actions/upload-artifact@v4
       with:
         name: BambuStudio-App
-        path: BambuStudio-Mobile.apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+ 
