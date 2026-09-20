@@ -94,7 +94,8 @@ jobs:
             <application
                 android:allowBackup="true"
                 android:label="@string/app_name"
-                android:supportsRtl="true">
+                android:supportsRtl="true"
+                android:theme="@style/AppTheme">
 
                 <activity
                     android:name=".MainActivity"
@@ -114,16 +115,168 @@ jobs:
         </resources>
         EOF
 
+        cat > app/src/main/res/values/styles.xml <<'EOF'
+        <resources>
+            <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+                <item name="android:colorAccent">#00AEEC</item>
+                <item name="android:navigationBarColor">#101419</item>
+                <item name="android:statusBarColor">#101419</item>
+                <item name="android:windowLightStatusBar">false</item>
+            </style>
+        </resources>
+        EOF
+
         cat <<'EOF' > app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java
         package com.apkappentwickler.bambustudio;
 
         import android.app.Activity;
+        import android.content.Intent;
+        import android.graphics.Color;
+        import android.graphics.Typeface;
+        import android.graphics.drawable.GradientDrawable;
+        import android.net.Uri;
         import android.os.Bundle;
+        import android.view.Gravity;
+        import android.view.View;
+        import android.view.ViewGroup;
+        import android.widget.Button;
+        import android.widget.LinearLayout;
+        import android.widget.TextView;
+        import android.widget.Toast;
 
         public class MainActivity extends Activity {
+            private static final int PICK_MODEL_REQUEST = 42;
+            private static final int BG = Color.rgb(16, 20, 25);
+            private static final int SURFACE = Color.rgb(28, 34, 41);
+            private static final int TEXT = Color.rgb(242, 245, 247);
+            private static final int MUTED = Color.rgb(156, 169, 179);
+            private static final int CYAN = Color.rgb(0, 174, 236);
+
+            static {
+                System.loadLibrary("bambustudio_core");
+            }
+
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
+                getWindow().setStatusBarColor(BG);
+                getWindow().setNavigationBarColor(BG);
+                setContentView(createContentView());
+            }
+
+            private View createContentView() {
+                LinearLayout root = new LinearLayout(this);
+                root.setOrientation(LinearLayout.VERTICAL);
+                root.setBackgroundColor(BG);
+                root.setPadding(dp(28), dp(22), dp(28), dp(24));
+
+                LinearLayout toolbar = new LinearLayout(this);
+                toolbar.setGravity(Gravity.CENTER_VERTICAL);
+
+                TextView mark = label("B", 24, CYAN);
+                mark.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                mark.setGravity(Gravity.CENTER);
+                mark.setBackground(round(CYAN, 12));
+                toolbar.addView(mark, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+                TextView brand = label("  Bambu Studio", 21, TEXT);
+                brand.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                toolbar.addView(brand, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+                TextView version = label("MOBILE", 11, MUTED);
+                version.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                toolbar.addView(version);
+
+                root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(56)));
+
+                TextView heading = label("Bereit für dein nächstes\n3D-Projekt?", 32, TEXT);
+                heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                heading.setPadding(0, dp(22), 0, dp(8));
+                root.addView(heading);
+
+                TextView intro = label("Lade ein Modell und starte den Slicing-Workflow.", 16, MUTED);
+                intro.setPadding(0, dp(14), 0, dp(26));
+                root.addView(intro);
+
+                LinearLayout card = new LinearLayout(this);
+                card.setOrientation(LinearLayout.VERTICAL);
+                card.setPadding(dp(20), dp(20), dp(20), dp(20));
+                card.setBackground(round(SURFACE, 18));
+
+                TextView cardTitle = label("MODELL IMPORTIEREN", 12, CYAN);
+                cardTitle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                card.addView(cardTitle);
+
+                TextView hint = label("Unterstützte Formate: STL und 3MF", 14, MUTED);
+                hint.setPadding(0, dp(8), 0, dp(18));
+                card.addView(hint);
+
+                Button load = new Button(this);
+                load.setAllCaps(false);
+                load.setText("3D-Modell für Slicing laden (.stl/.3mf)");
+                load.setTextColor(Color.WHITE);
+                load.setTextSize(16);
+                load.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                load.setGravity(Gravity.CENTER);
+                load.setMinHeight(dp(58));
+                load.setPadding(dp(12), 0, dp(12), 0);
+                load.setBackground(round(CYAN, 12));
+                load.setOnClickListener(v -> openModelPicker());
+
+                card.addView(load, new LinearLayout.LayoutParams(-1, dp(58)));
+                root.addView(card, new LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                TextView footer = label("Bambu Studio Core  •  Bereit", 13, MUTED);
+                footer.setGravity(Gravity.CENTER);
+                footer.setPadding(0, dp(26), 0, 0);
+                root.addView(footer);
+
+                return root;
+            }
+
+            private void openModelPicker() {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                        "model/stl",
+                        "application/vnd.ms-pki.stl",
+                        "model/3mf",
+                        "application/vnd.ms-package.3dmanufacturing-3dmodel",
+                        "application/octet-stream"
+                });
+
+                startActivityForResult(Intent.createChooser(intent, "3D-Modell auswählen"), PICK_MODEL_REQUEST);
+            }
+
+            @Override
+            protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+                super.onActivityResult(requestCode, resultCode, data);
+                if (requestCode == PICK_MODEL_REQUEST && resultCode == RESULT_OK && data != null) {
+                    Uri model = data.getData();
+                    if (model != null) {
+                        Toast.makeText(this, "Modell geladen: " + model.getLastPathSegment(), Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+
+            private TextView label(String text, int size, int color) {
+                TextView view = new TextView(this);
+                view.setText(text);
+                view.setTextSize(size);
+                view.setTextColor(color);
+                return view;
+            }
+
+            private GradientDrawable round(int color, int radius) {
+                GradientDrawable drawable = new GradientDrawable();
+                drawable.setColor(color);
+                drawable.setCornerRadius(dp(radius));
+                return drawable;
+            }
+
+            private int dp(int value) {
+                return Math.round(value * getResources().getDisplayMetrics().density);
             }
         }
         EOF
