@@ -22,7 +22,7 @@ jobs:
     - name: Android-Projekt mit Java-Ordner fehlerfrei aufbauen
       run: |
         # 1. Tisch komplett freiräumen
-        rm -rf app android build
+        rm -rf app android build obj classes.zip classes.dex BambuStudio-Unsigned.apk BambuStudio-Mobile.apk
         find . -maxdepth 1 -type f -not -name "README.md" -delete
         
         # 2. Die Ordnerstruktur exakt wieder aufbauen
@@ -33,7 +33,7 @@ jobs:
         # 3. Das korrigierte Manifest mit dem RICHTIGEN Namespace
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        <manifest xmlns:android="http://android.com"
             package="com.apkappentwickler.bambustudio">
             <application
                 android:allowBackup="true"
@@ -79,10 +79,10 @@ jobs:
         # 7. Die Java-Datei direkt in Android-Maschinencode (DEX) übersetzen
         cd ../../../
         javac -source 1.8 -target 1.8 -bootclasspath $ANDROID_HOME/platforms/android-34/android.jar app/src/main/java/com/apkappentwickler/bambustudio/MainActivity.java -d obj
-        $ANDROID_HOME/build-tools/34.0.0/d8 obj/com/apkappentwickler/bambustudio/MainActivity.class --lib $ANDROID_HOME/platforms/android-34/android.jar --output classes.zip
+        $ANDROID_HOME/build-tools/34.0.0/d8 obj/com/apkappentwickler/bambustudio/MainActivity.class --lib $ANDROID_HOME/platforms/android-34/android.jar --output .
         
-        # 8. Den Maschinencode in die APK einbetten
-        zip -uj BambuStudio-Unsigned.apk classes.dex
+        # 8. Den Maschinencode mit dem bordeigenen JAR-Tool in die APK einbetten (Ersetzt den fehlerhaften ZIP-Befehl!)
+        jar uf BambuStudio-Unsigned.apk classes.dex
         
         # 9. Die APK debug-signieren
         $ANDROID_HOME/build-tools/34.0.0/apksigner debug --apk BambuStudio-Unsigned.apk --out BambuStudio-Mobile.apk
