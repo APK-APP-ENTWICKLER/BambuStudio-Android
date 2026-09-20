@@ -74,6 +74,12 @@ jobs:
                 versionName '1.0'
             }
 
+            sourceSets {
+                main {
+                    jniLibs.srcDirs = ["src/main/jniLibs"]
+                }
+            }
+
             compileOptions {
                 sourceCompatibility JavaVersion.VERSION_1_8
                 targetCompatibility JavaVersion.VERSION_1_8
@@ -137,4 +143,3 @@ jobs:
       with:
         name: BambuStudio-App
         path: app/build/outputs/apk/debug/app-debug.apk
-
