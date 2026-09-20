@@ -427,6 +427,7 @@ jobs:
             keytool \
               -genkeypair \
               -v \
+              -noprompt \
               -keystore "${DEBUG_KEYSTORE}" \
               -storepass android \
               -alias androiddebugkey \
@@ -436,8 +437,6 @@ jobs:
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
           fi
-
-          cp "${ALIGNED_APK}" "${SIGNED_APK}"
 
           "${{ steps.build-tools.outputs.dir }}/apksigner" sign \
             --ks "${DEBUG_KEYSTORE}" \
