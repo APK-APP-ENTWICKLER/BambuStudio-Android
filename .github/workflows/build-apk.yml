@@ -19,17 +19,17 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Kompletten App-Ordner vernichten und fehlerfrei neu aufbauen
+    - name: App-Projektstruktur fehlerfrei aufbauen
       run: |
-        # 1. Löscht den kompletten alten 'app'-Ordner und alle losen Dateien restlos weg!
+        # 1. Löscht alle alten Ordner und Reste radikal weg
         rm -rf app
         find . -maxdepth 1 -type f -not -name "README.md" -delete
         
-        # 2. Erstellt die exakten Ordner komplett frisch und jungfräulich neu
+        # 2. Erstellt die Ordner komplett neu
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # 3. Schreibt das garantierte, fehlerfreie Google-Standard-Manifest
+        # 3. Schreibt das korrigierte Google-Standard-Manifest (Jetzt mit allen Name-Attributen!)
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://android.com"
@@ -78,7 +78,7 @@ jobs:
         }
         EOF
 
-        # 6. Schreibt die modernen Gradle-Dateien
+        # 6. Schreibt die Gradle-Dateien
         cat << 'EOF' > settings.gradle
         pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
         dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
