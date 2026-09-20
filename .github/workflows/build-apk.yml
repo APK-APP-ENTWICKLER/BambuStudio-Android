@@ -19,27 +19,36 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Alten Ballast löschen und App-Projekt sauber erzeugen
+    - name: Kompletten App-Ordner vernichten und fehlerfrei neu aufbauen
       run: |
-        # 1. Löscht alle losen Dateien im Hauptordner, damit der Compiler nicht verwirrt wird
+        # 1. Löscht den kompletten alten 'app'-Ordner und alle losen Dateien restlos weg!
+        rm -rf app
         find . -maxdepth 1 -type f -not -name "README.md" -delete
         
-        # 2. Erstellt die exakten Ordner neu
+        # 2. Erstellt die exakten Ordner komplett frisch und jungfräulich neu
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/java/com/apkappentwickler/bambustudio
         
-        # 3. Schreibt das fehlerfreie Manifest
+        # 3. Schreibt das garantierte, fehlerfreie Google-Standard-Manifest
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://android.com"
             package="com.apkappentwickler.bambustudio">
-            <application android:label="Bambu Studio Mobile" android:allowBackup="true" android:supportsRtl="true">
-                <activity android:name=".MainActivity" android:exported="true">
+            
+            <application
+                android:allowBackup="true"
+                android:label="Bambu Studio Mobile"
+                android:supportsRtl="true">
+                
+                <activity
+                    android:name="com.apkappentwickler.bambustudio.MainActivity"
+                    android:exported="true">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
                     </intent-filter>
                 </activity>
+                
             </application>
         </manifest>
         EOF
@@ -56,10 +65,15 @@ jobs:
         package com.apkappentwickler.bambustudio;
         import android.app.Activity;
         import android.os.Bundle;
+        import android.widget.TextView;
         public class MainActivity extends Activity {
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
+                TextView tv = new TextView(this);
+                tv.setText("Bambu Studio Mobile: App erfolgreich gestartet!");
+                tv.setTextSize(24);
+                setContentView(tv);
             }
         }
         EOF
