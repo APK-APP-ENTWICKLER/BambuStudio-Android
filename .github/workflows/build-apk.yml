@@ -111,21 +111,11 @@ jobs:
 
         import android.app.Activity;
         import android.os.Bundle;
-        import android.widget.TextView;
 
         public class MainActivity extends Activity {
-            // static {
-            //     // Temporär deaktiviert, um den Absturz beim Starten zu testen!
-            //     System.loadLibrary("bambustudio_core");
-            // }
-
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
-                TextView tv = new TextView(this);
-                tv.setText("Bambu Studio Mobile: Gehäuse läuft absolut stabil!");
-                tv.setTextSize(24);
-                setContentView(tv);
             }
         }
         EOF
@@ -147,3 +137,4 @@ jobs:
       with:
         name: BambuStudio-App
         path: app/build/outputs/apk/debug/app-debug.apk
+
